@@ -1,0 +1,77 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    container_name: postgres
+    image: postgres:12
+    restart: always
+    ports:
+      - "5440:5432"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: bjbd672bjhw
+
+  redis:
+    container_name: redis
+    restart: always
+    image: redis:latest
+    command: redis-server --requirepass njdksncj67236
+    volumes:
+      - ./redis-data:/data
+    ports:
+      - "6383:6379"
+
+  web-twitter:
+    container_name: web-twitter
+    build:
+      context: .
+      dockerfile: web.Dockerfile
+    restart: always
+    volumes:
+      - ./static:/app/static
+    ports:
+      - "7222:7222"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+
+  nginx-twitter:
+    container_name: nginx-twitter
+    build:
+      context: ./nginx
+      dockerfile: nginx.Dockerfile
+    volumes:
+      - ./static/:/static
+    ports:
+      - "7788:80"
+    depends_on:
+      - web-twitter
+
+  celery-worker:
+    container_name: celery-worker
+    build:
+      context: .
+      dockerfile: celery.Dockerfile
+    command: celery --app data_ox_twitter worker --loglevel=info
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+
+  celery-beat:
+    container_name: celery-beat
+    build:
+      context: .
+      dockerfile: celery.Dockerfile
+    command: celery --app data_ox_twitter beat --loglevel=info
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+
